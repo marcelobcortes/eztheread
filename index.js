@@ -1,16 +1,56 @@
 const pdftotext = require('pdftotextjs');
-const pdf = new pdftotext('input/atomichabits.pdf');
-pdf.add_options([`-f 1`, `-l 10`]);
-const fileContent = pdf.getTextSync().toString();
+const fs = require('fs');
+let Tokenizer = require('tokenize-text');
 
-var Tokenizer = require('tokenize-text');
-var tokenize = new Tokenizer();
+const wordMatchExp = '([a-z])+';
 
-let tokenizeWords = tokenize.words()(fileContent);
-let words = {};
-Object.keys(tokenizeWords).forEach((val) => {
-    words[tokenizeWords[val].value] = 1;
-});
-words = Object.keys(words);
+const correctString = (str) => {
+    const correctionExp = [
+        {
+            exp: '(”$)+',
+            correct: (str) => str.substring(0, -2)
+        },
+        {
+            exp: '^(“)+',
+            correct: (str) => str.substring(1)
+        }];
 
-console.log(words);
+    correctionExp.forEach((corrExp) => {
+        if (str.match(corrExp.exp)) {
+            str = corrExp.correct(str);
+        }
+    });
+    return str;
+}
+
+const getWordsFromString = (string) => {
+    const tokenize = new Tokenizer();
+    
+    const tokenizeWords = tokenize.words()(string.toLowerCase());
+    let words = {};
+
+    Object.keys(tokenizeWords).forEach((val) => {
+        let word = tokenizeWords[val].value;
+        
+        if (word.match(wordMatchExp)) {
+            word = correctString(word);
+            words[word] = 1;
+        }
+    });
+    words = Object.keys(words);
+
+    return words;
+}
+
+const getWordsFromPDF = (filepath) => {
+
+    const pdf = new pdftotext(filepath);
+    const fileContent = pdf.getTextSync().toString();
+    
+    return getWordsFromString(fileContent);
+}
+
+const getWords = (arg) => getWordsFromPDF(arg);
+
+const words = getWords('input/atomichabits.pdf');
+fs.writeFileSync('output/pdf.txt', words);
