@@ -50,7 +50,24 @@ const getWordsFromPDF = (filepath) => {
     return getWordsFromString(fileContent);
 }
 
-const getWords = (arg) => getWordsFromPDF(arg);
+const getWordsFromTXT = (filepath) => {
 
-const words = getWords('input/atomichabits.pdf');
-fs.writeFileSync('output/pdf.txt', words);
+    const fileContent = fs.readFileSync(filepath);
+    
+    return getWordsFromString(fileContent.toString());
+}
+
+const getWords = (arg, options = {}) => {
+    if (options.fileType == 'pdf') {
+        return getWordsFromPDF(arg);
+    } else if (options.fileType == 'txt') {
+        return getWordsFromTXT(arg);
+    } else {
+        return getWordsFromString(arg);
+    }
+}
+
+// const words = getWords('input/atomichabits.pdf', {fileType='pdf'});
+// fs.writeFileSync('output/pdf.txt', words);
+
+module.exports = getWords;
