@@ -1,9 +1,6 @@
 const fs = require('fs');
-const getWords = require('./extractWords.js')
-
-const getDictionary = (filepath) => {
-    return getWords(filepath, {fileType:'txt'});
-}
+const getWords = require('./src/extractWords.js')
+const getDictionary = require('./src/getDictionary')
 
 const rankWordsByFrequency = (dictionary, words) => {
     let rankedWords = [];
@@ -24,8 +21,8 @@ const rankWordsByFrequency = (dictionary, words) => {
 }
 
 // https://github.com/hermitdave/FrequencyWords/blob/master/content/2018/en/en_50k.txt
-const dictionary = getDictionary('input/en_50k.txt');
-const words = getWords('input/atomichabits.pdf', {fileType:'pdf'});
+const dictionary = getDictionary();
+const words = getWords('./input/mediums.pdf', {fileType:'pdf'});
 
 const rankedWords = rankWordsByFrequency(dictionary, words);
 
