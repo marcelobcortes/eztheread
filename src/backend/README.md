@@ -4,3 +4,6 @@ but this uses PUT
 
 https://advancedweb.hu/how-to-use-s3-post-signed-urls/
 this explains about using POST
+
+https://forestry.io/blog/automate-your-static-hosting-environment-with-aws-cloudformation/
+this post explains about static hosting
