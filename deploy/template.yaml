@@ -1,21 +1,8 @@
 AWSTemplateFormatVersion: 2010-09-09
-Transform: AWS::Serverless-2016-10-31
 Description: EzTheRead Uploader
 
-Transform: S3Objects
-
-Resources:
-  Bucket:
-    Type: AWS::S3::Bucket
-
-  Object:
-    Type: AWS::S3::Object
-    Properties:
-      Target:
-        Bucket: !Ref Bucket
-        Key: index.html
-        ACL: public-read
-      Source: ../src/frontend/index.html
+Transform:
+  - AWS::Serverless-2016-10-31
 
 # Resources:
   # HTTP API
