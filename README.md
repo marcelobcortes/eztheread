@@ -1,3 +1,9 @@
 # Ez The Read (wip)
 
-A software to ease a reading of a file/book by giving you a list of the words from a given file ranked by how uncommon the word is.
+## What is it?
+
+A software to ease reading a book for english learners
+
+## How it works?
+
+By uploading a file/book this app gives you a list of its words ranked by how uncommon the word is in movies subtitles, so you can study the book's vocabulary beforehand.
