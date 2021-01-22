@@ -8,6 +8,8 @@
   },
   "keywords": [],
   "dependencies": {
-    "aws-sdk": "^2.749.0"
+    "aws-sdk": "^2.749.0",
+    "pdftotextjs": "^0.5.1",
+    "tokenize-text": "^1.1.3"
   }
 }

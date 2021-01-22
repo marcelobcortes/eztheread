@@ -23,9 +23,18 @@ Resources:
           - DELETE
           - OPTIONS
         AllowHeaders:
-          - "*"   
+          - "*"
         AllowOrigins: 
-          - "*"      
+          - "*"
+
+  PopplerLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      ContentUri: ./package.zip
+      CompatibleRuntimes:
+        - nodejs12.x
+    Metadata:
+      BuildMethod: nodejs12.x
 
   ## Lambda functions
   UploadRequestFunction:
@@ -60,6 +69,8 @@ Resources:
       Runtime: nodejs12.x
       Timeout: 300
       MemorySize: 1024
+      Layers:
+        - !Ref PopplerLayer
       Policies:
         - Version: '2012-10-17'
           Statement:

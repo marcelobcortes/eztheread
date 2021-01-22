@@ -7,3 +7,6 @@ this explains about using POST
 
 https://forestry.io/blog/automate-your-static-hosting-environment-with-aws-cloudformation/
 this post explains about static hosting
+
+https://docs.min.io/docs/how-to-use-aws-sdk-for-javascript-with-minio-server.html
+this post explains how to have a fake S3 locally
