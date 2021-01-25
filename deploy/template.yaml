@@ -30,7 +30,7 @@ Resources:
   PopplerLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      ContentUri: ./package.zip
+      ContentUri: ../src/backend/poppler/poppler.zip
       CompatibleRuntimes:
         - nodejs12.x
     Metadata:
@@ -52,7 +52,6 @@ Resources:
       Policies:
         - S3WritePolicy:
             BucketName: !Ref S3UploadBucket
-
       Events:
         UploadAssetAPI:
           Type: HttpApi
@@ -62,7 +61,7 @@ Resources:
             ApiId: !Ref MyApi
 
   WordExtractorFunction:
-    Type: AWS::Serverless::Function 
+    Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../src/backend/extractor/
       Handler: app.handler

@@ -10,3 +10,9 @@ this post explains about static hosting
 
 https://docs.min.io/docs/how-to-use-aws-sdk-for-javascript-with-minio-server.html
 this post explains how to have a fake S3 locally
+
+https://www.petewilcock.com/using-poppler-pdftotext-and-other-custom-binaries-on-aws-lambda/
+talks about including dependencies to the lambda env
+
+https://github.com/jeylabs/aws-lambda-poppler-layer
+use this layer to enable to use "pdftotext"
