@@ -22,8 +22,8 @@ const rankWordsByFrequency = (dictionary, words) => {
 
 // https://github.com/hermitdave/FrequencyWords/blob/master/content/2018/en/en_50k.txt
 const dictionary = getDictionary();
-const words = getWords('./input/mediums.pdf', {fileType:'pdf'});
+const words = getWords('../../input/mediums.pdf', {fileType:'pdf'});
 
 const rankedWords = rankWordsByFrequency(dictionary, words);
 
-fs.writeFileSync('output/rank.txt', rankedWords);
+fs.writeFileSync('../../output/rank.txt', JSON.stringify(rankedWords));
