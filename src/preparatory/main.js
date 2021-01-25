@@ -1,6 +1,6 @@
 const fs = require('fs');
-const getWords = require('./src/extractWords.js')
-const getDictionary = require('./src/getDictionary')
+const getWords = require('./extractWords.js')
+const getDictionary = require('./getDictionary')
 
 const rankWordsByFrequency = (dictionary, words) => {
     let rankedWords = [];

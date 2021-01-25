@@ -1,6 +1,6 @@
-const pdftotext = require('pdftotextjs');
+const pdftotext = require('./preparatory/node_modules/pdftotextjs');
 const fs = require('fs');
-let Tokenizer = require('tokenize-text');
+let Tokenizer = require('./preparatory/node_modules/tokenize-text');
 
 const wordMatchExp = '([a-z])+';
 
