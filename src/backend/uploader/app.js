@@ -1,38 +1,31 @@
 'use strict'
 
+const region = 'us-east-1';
 const AWS = require('aws-sdk')
-AWS.config.update({ region: 'us-east-1' })
-const s3 = new AWS.S3()
+const { v4: uuidv4 } = require('uuid');
 
-// Change this value to adjust the signed URL's expiration
+AWS.config.update({ region })
+const s3 = new AWS.S3()
+const iot = new AWS.Iot();
+const sts = new AWS.STS();
+const iam = new AWS.IAM();
+
+const roleName = 'eztheread-client';
 const URL_EXPIRATION_SECONDS = 300
 
-// Main Lambda entry point
-exports.handler = async (event) => {
-    // const uploadUrl = await getUploadURL(event)
-    return await getUploadURL(event)
-    
-}
+exports.handler = async (event, context, callback) => {
+    const fileName = uuidv4();
 
-const getUploadURL = async function(event) {
-    const randomID = parseInt(Math.random() * 10000000)
-    const Key = `${randomID}.pdf`
+    const uploadUrl = await getUploadURL(fileName);
+    const iot = await getIot(callback, fileName);
 
-    // Get signed URL from S3
-    const s3Params = {
-        Bucket: process.env.UploadBucket,
-        Key,
-        Expires: URL_EXPIRATION_SECONDS,
-        ContentType: 'application/pdf',
+    return JSON.stringify({ uploadUrl, iot });
+};
 
-        // This ACL makes the uploaded object publicly readable. You must also uncomment
-        // the extra permission for the Lambda function in the SAM template.
+const getUploadURL = async function(fileName) {
+    const Key = `${fileName}.pdf`;
 
-        // ACL: 'public-read'
-    }
-
-    console.log('Params: ', s3Params)
-    const uploadURL = await s3.createPresignedPost({
+    return await s3.createPresignedPost({
         Bucket: process.env.UploadBucket,
         Fields: {
             key: Key
@@ -41,8 +34,74 @@ const getUploadURL = async function(event) {
         Conditions: [
 			["content-length-range", 0, 20000000],
         ],
-        
-    })
+    });
+};
 
-    return JSON.stringify(uploadURL)
-}
+const createRole = async () => {
+    const params = {
+        RoleName: roleName
+    };
+    try {
+        // throws if role doesn't exist
+        await iam.getRole(params).promise();
+    } catch (err) {
+        const identity = await sts.getCallerIdentity({}).promise();
+        const createRoleParams = {
+            AssumeRolePolicyDocument: `{
+                "Version":"2012-10-17",
+                "Statement":[{
+                    "Effect": "Allow",
+                    "Principal": {
+                        "AWS": "arn:aws:iam::${identity.Account}:root"
+                    },
+                    "Action": "sts:AssumeRole"
+                    }
+                ]
+            }`,
+            RoleName: roleName
+        };
+
+        await iam.createRole(createRoleParams).promise();
+
+        const attachPolicyParams = {
+            PolicyDocument: `{
+                "Version": "2012-10-17",
+                "Statement": [{
+                "Action": ["iot:Connect", "iot:Subscribe", "iot:Publish", "iot:Receive"],
+                "Resource": "*",
+                "Effect": "Allow"
+                }]
+            }`,
+            PolicyName: roleName,
+            RoleName: roleName
+        };
+
+        // add iot policy
+        await iam.putRolePolicy(attachPolicyParams);
+    }
+};
+
+const getIot = async (callback, fileName) => {
+
+    try {
+        await createRole();
+        const endpoint = await iot.describeEndpoint({}).promise();
+        const identity = await sts.getCallerIdentity({}).promise();
+
+        const params = {
+            RoleArn: `arn:aws:iam::${identity.Account}:role/${roleName}`,
+            RoleSessionName: fileName,
+        };
+        const role = await sts.assumeRole(params).promise();
+
+        return {
+                iotEndpoint: endpoint.endpointAddress,
+                region: region,
+                accessKey: role.Credentials.AccessKeyId,
+                secretKey: role.Credentials.SecretAccessKey,
+                sessionToken: role.Credentials.SessionToken
+        };
+    } catch (err) {
+        callback(err);
+    }
+};

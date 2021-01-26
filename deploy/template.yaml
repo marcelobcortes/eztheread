@@ -30,11 +30,42 @@ Resources:
   PopplerLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      ContentUri: ../src/backend/poppler/poppler.zip
+      ContentUri: ../src/backend/assets/poppler.zip
       CompatibleRuntimes:
         - nodejs12.x
     Metadata:
       BuildMethod: nodejs12.x
+
+  RootRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub
+                - arn:aws:iam::${AccountId}:root
+                - { AccountId: !Ref 'AWS::AccountId' }
+              Service: lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: UploadRequestFunction-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'iot:DescribeEndpoint'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'sts:AssumeRole'
+                  - 'iam:GetRole'
+                  - 'iam:CreateRole'
+                  - 'iam:PutRolePolicy'
+                Resource: '*'
 
   ## Lambda functions
   UploadRequestFunction:
@@ -49,6 +80,10 @@ Resources:
       Environment:
         Variables:
           UploadBucket: !Ref S3UploadBucket  
+      Role: !Sub
+            - arn:aws:iam::${AccountId}:role/${RootRole}
+            - AccountId: !Ref 'AWS::AccountId'
+              RootRole: !Ref RootRole
       Policies:
         - S3WritePolicy:
             BucketName: !Ref S3UploadBucket
