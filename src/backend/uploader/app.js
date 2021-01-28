@@ -42,42 +42,45 @@ const createRole = async () => {
         RoleName: roleName
     };
     try {
-        // throws if role doesn't exist
         await iam.getRole(params).promise();
     } catch (err) {
-        const identity = await sts.getCallerIdentity({}).promise();
-        const createRoleParams = {
-            AssumeRolePolicyDocument: `{
-                "Version":"2012-10-17",
-                "Statement":[{
-                    "Effect": "Allow",
-                    "Principal": {
-                        "AWS": "arn:aws:iam::${identity.Account}:root"
-                    },
-                    "Action": "sts:AssumeRole"
-                    }
-                ]
-            }`,
-            RoleName: roleName
-        };
+        try {
+            const identity = await sts.getCallerIdentity({}).promise();
+            const createRoleParams = {
+                AssumeRolePolicyDocument: `{
+                    "Version":"2012-10-17",
+                    "Statement":[{
+                        "Effect": "Allow",
+                        "Principal": {
+                            "AWS": "arn:aws:iam::${identity.Account}:root"
+                        },
+                        "Action": "sts:AssumeRole"
+                        }
+                    ]
+                }`,
+                RoleName: roleName
+            };
 
-        await iam.createRole(createRoleParams).promise();
+            await iam.createRole(createRoleParams).promise();
 
-        const attachPolicyParams = {
-            PolicyDocument: `{
-                "Version": "2012-10-17",
-                "Statement": [{
-                "Action": ["iot:Connect", "iot:Subscribe", "iot:Publish", "iot:Receive"],
-                "Resource": "*",
-                "Effect": "Allow"
-                }]
-            }`,
-            PolicyName: roleName,
-            RoleName: roleName
-        };
+            const attachPolicyParams = {
+                PolicyDocument: `{
+                    "Version": "2012-10-17",
+                    "Statement": [{
+                    "Action": ["iot:Connect", "iot:Subscribe", "iot:Publish", "iot:Receive"],
+                    "Resource": "*",
+                    "Effect": "Allow"
+                    }]
+                }`,
+                PolicyName: roleName,
+                RoleName: roleName
+            };
 
-        // add iot policy
-        await iam.putRolePolicy(attachPolicyParams);
+            // add iot policy
+            await iam.putRolePolicy(attachPolicyParams).promise();
+        } catch (error) {
+            console.log(error);
+        }
     }
 };
 
@@ -85,7 +88,7 @@ const getIot = async (callback, fileName) => {
 
     try {
         await createRole();
-        const endpoint = await iot.describeEndpoint({}).promise();
+        const endpoint = await iot.describeEndpoint({endpointType: 'iot:Data-ATS'}).promise();
         const identity = await sts.getCallerIdentity({}).promise();
 
         const params = {
