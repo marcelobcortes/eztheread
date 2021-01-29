@@ -66,6 +66,12 @@ Resources:
                   - 'iam:CreateRole'
                   - 'iam:PutRolePolicy'
                 Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: '*'
 
   ## Lambda functions
   UploadRequestFunction:
@@ -79,7 +85,7 @@ Resources:
       MemorySize: 128
       Environment:
         Variables:
-          UploadBucket: !Ref S3UploadBucket  
+          UploadBucket: !Ref S3UploadBucket
       Role: !Sub
             - arn:aws:iam::${AccountId}:role/${RootRole}
             - AccountId: !Ref 'AWS::AccountId'
@@ -147,10 +153,21 @@ Resources:
         - AllowedHeaders:
             - "*"
           AllowedMethods:
+            - PUT
             - POST
             - HEAD
           AllowedOrigins:
             - "*"
+  UploadPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref S3UploadBucket
+      PolicyDocument:
+        Statement:
+        - Action: 's3:PutObject'
+          Effect: Allow
+          Resource: !Sub 'arn:aws:s3:::${S3UploadBucket}/*'
+          Principal: "*"
   
   # Create the bucket to contain the website HTML
   S3Bucket:

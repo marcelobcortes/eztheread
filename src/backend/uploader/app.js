@@ -98,6 +98,7 @@ const getIot = async (callback, fileName) => {
         const role = await sts.assumeRole(params).promise();
 
         return {
+                topic: fileName,
                 iotEndpoint: endpoint.endpointAddress,
                 region: region,
                 accessKey: role.Credentials.AccessKeyId,

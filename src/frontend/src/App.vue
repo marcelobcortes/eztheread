@@ -1,15 +1,29 @@
 <template>
   <div id="app">
-    <IoT />
+    <h1>Ez The Read</h1>
+    <Uploader @setIoTConnection="setIoTConnection($event)" />
+    <IoT :iot="iot" />
   </div>
 </template>
 
 <script>
+import Uploader from './components/Uploader.vue'
 import IoT from './components/IoT.vue'
 
 export default {
   name: 'App',
+  data() {
+    return {
+      iot: {}
+    }
+  },
+  methods: {
+    setIoTConnection (iotParams) {
+      this.iot = iotParams;
+    }
+  },
   components: {
+    Uploader,
     IoT
   }
 }

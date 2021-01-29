@@ -1,1 +1,1 @@
-aws s3 sync --acl "public-read" ../src/frontend s3://ez-the-read-s3bucket-gqrxl585n0i3
+aws s3 sync --acl "public-read" ../src/frontend/dist s3://ez-the-read-s3bucket-gqrxl585n0i3
