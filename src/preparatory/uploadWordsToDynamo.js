@@ -15,6 +15,7 @@ const sleep = (ms) => {
 };
 
 const savePartial = () => {
+    fs.writeFileSync('../../input/currentId.txt', currentId);
     fs.writeFileSync('../../input/wordsWithMetadata.txt', JSON.stringify(wordsWithMetadata));
 };
 
@@ -25,8 +26,11 @@ var Word = dynamo.define('Word', {
     timestamps : true,
   
     schema : {
-        word    : Joi.string(),
-        metadata: Joi.array()
+        word        : Joi.string(),
+        dictionary  : Joi.array(),
+        translation : Joi.array(),
+        frequency   : Joi.number(),
+        score       : Joi.number(),
     }
 });
 
@@ -40,7 +44,14 @@ var Word = dynamo.define('Word', {
 
 const uploadWord = async (word) => {
     return new Promise((resolve, reject) => {
-        Word.create({word: word[0]['word'].toLowerCase(), metadata: word}, function (err, acc) {
+        Word.create(
+            {
+                word: word[0]['word'].toLowerCase(),
+                dictionary: word,
+                translation: [],
+                frequency: currentId,
+                score: 0
+            }, function (err, acc) {
             if (err) {
                 console.log(err);
                 reject(err);
@@ -54,6 +65,7 @@ const uploadWord = async (word) => {
 let word = '';
 let wordProcessed = true;
 let wordsWithMetadata = Object.values(JSON.parse(fs.readFileSync('../../input/wordsWithMetadata.txt')));
+let currentId = parseInt(fs.readFileSync('../../input/currentId.txt'));
 
 process.on('SIGINT', function() {
     console.log("Caught interrupt signal");
@@ -75,6 +87,7 @@ const main = async () => {
             wordProcessed = false;
             try {
                 await uploadWord(word);
+                currentId++;
                 wordProcessed = true;
                 await sleep(100);
             } catch (e) {
