@@ -120,7 +120,13 @@ Resources:
               Resource: 'arn:aws:s3:::*'
             - Effect: Allow
               Action:
-                - 'dynamodb:GetItem'
+                - 'iot:DescribeEndpoint'
+                - 'iot:Publish'
+                - 'iot:Connect'
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - 'dynamodb:Query'
               Resource:
                 'Fn::Join':
                   - ''
