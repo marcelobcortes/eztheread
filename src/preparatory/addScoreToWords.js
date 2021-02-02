@@ -82,8 +82,8 @@ const saveProgress = () => {
 
 process.on('SIGINT', saveProgress);
 process.on('SIGTERM', saveProgress);
-process.on('SIGSTOP', saveProgress);
-process.on('SIGKILL', saveProgress);
+// process.on('SIGSTOP', saveProgress);
+// process.on('SIGKILL', saveProgress);
 
 const main = async () => {
     startKey = fs.readFileSync('../../input/startKey.txt').toString();
@@ -92,7 +92,7 @@ const main = async () => {
     let words = [];
     while (true) {
         console.log(startKey)
-        words = await Word.scan().where('score').equals(0).startKey(startKey).limit(100).exec().promise();
+        words = await Word.scan().where('score').equals(0).loadAll().exec().promise();
         words = Object.values(words[0].Items).map((value) => value.attrs.word);
         console.log(words.length);
 
