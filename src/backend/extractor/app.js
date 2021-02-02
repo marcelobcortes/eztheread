@@ -26,29 +26,53 @@ exports.handler = async (event) => {
     try {
         const bucket = event.Records[0].s3.bucket.name 
         const file = await getFileFromS3(fileName, bucket)
+        
         const wordList = extractWords(file)
-        let sortedWordList = []
+        const sortedWordList = await getSortedList(wordList)
+        
+        const {compress} = require('compress-json')
+        const compressed = compress(sortedWordList)
 
-        for (const word of wordList) {
-            const wordStored = await Word.query(word).exec().promise()
-            if (wordStored[0]['Count'] > 0) {
-                const wordMetadata = Object.values(wordStored[0].Items).map((value) => value.attrs)
-                sortedWordList[wordMetadata[0]['frequency']] = wordMetadata[0]
-            }
-        }
+        const splittedPayload = splitPayload(compressed)
 
         // save hash and sorted list
         try {
-            await publishToIoTTopic(topic, sortedWordList)
+            await publishSplittedToIoTTopic(topic, splittedPayload)
         } catch (err) {
-            console.log('erro? ')
-            console.log(err)
+            console.error('erro? ')
+            console.error(err)
         }
         return sortedWordList
     } catch (error) {
         console.error(error)
-        await publishToIoTTopic(topic, 'error')
+        await publishToIoTTopic(topic, error)
     }
+}
+
+const publishSplittedToIoTTopic = async (topic, splittedPayload) => {
+    await asyncForEach(splittedPayload, async (chunk) => {
+        await publishToIoTTopic(topic, chunk)
+    })
+}
+
+const splitPayload = (payload) => {
+    const str = JSON.stringify(payload)
+    const metadataSize = JSON.stringify({order: 9999,total: 9999,chunk: ""}).length
+    const chunkMaxSize = (128 * 1024) - (metadataSize)
+    const splittedPayload = []
+    const total = Math.ceil(str.length / chunkMaxSize)
+    let chunkOrder = 0
+
+    for (let i=0; i<str.length; i=i+chunkMaxSize) {
+        const chunk = str.substring(i, i+chunkMaxSize)
+        splittedPayload.push({
+            order: ++chunkOrder,
+            total,
+            chunk
+        })
+    }
+
+    return splittedPayload
 }
 
 const publishToIoTTopic = async (topic, payload) => {
@@ -57,11 +81,27 @@ const publishToIoTTopic = async (topic, payload) => {
 
     await iotdata.publish({
         topic,
-        payload: JSON.stringify(payload)
+        payload: JSON.stringify(payload),
+        qos: 1
     }).promise()
 }
 
-const getFileFromS3 = async function(fileName, bucket) {
+const getSortedList = async (wordList) => {
+    let sortedWordList = []
+
+    for (const word of wordList) {
+        const wordStored = await Word.query(word).exec().promise()
+        if (wordStored[0]['Count'] > 0) {
+            const wordMetadata = Object.values(wordStored[0].Items).map((value) => value.attrs)
+            if (wordMetadata[0]) {
+                sortedWordList[wordMetadata[0]['frequency']] = wordMetadata[0]
+            }
+        }
+    }
+    return sortedWordList
+}
+
+const getFileFromS3 = async (fileName, bucket) => {
     return new Promise((resolve, reject) => {
         const params = {
             Bucket: bucket, 
@@ -126,4 +166,14 @@ const getWordsFromString = (string) => {
     words = Object.keys(words)
 
     return words
+}
+
+async function asyncForEach(array, callback) {
+    for (let index = 0; index < array.length; index++) {
+        try {
+            await callback(array[index], index, array);
+        } catch (error) {
+            console.error(error)
+        }
+    }
 }
