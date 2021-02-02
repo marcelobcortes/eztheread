@@ -67,7 +67,7 @@ const createRole = async () => {
                 PolicyDocument: `{
                     "Version": "2012-10-17",
                     "Statement": [{
-                    "Action": ["iot:Connect", "iot:Subscribe", "iot:Publish", "iot:Receive"],
+                    "Action": ["iot:Connect", "iot:Subscribe", "iot:Receive"],
                     "Resource": "*",
                     "Effect": "Allow"
                     }]
@@ -88,7 +88,7 @@ const getIot = async (callback, fileName) => {
 
     try {
         await createRole();
-        const endpoint = await iot.describeEndpoint({endpointType: 'iot:Data-ATS'}).promise();
+        const {endpointAddress} = await iot.describeEndpoint({endpointType: 'iot:Data-ATS'}).promise();
         const identity = await sts.getCallerIdentity({}).promise();
 
         const params = {
@@ -99,7 +99,7 @@ const getIot = async (callback, fileName) => {
 
         return {
                 topic: fileName,
-                iotEndpoint: endpoint.endpointAddress,
+                iotEndpoint: endpointAddress,
                 region: region,
                 accessKey: role.Credentials.AccessKeyId,
                 secretKey: role.Credentials.SecretAccessKey,
