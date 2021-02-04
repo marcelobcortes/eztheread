@@ -51,26 +51,48 @@ exports.handler = async (event) => {
 
 const publishSplittedToIoTTopic = async (topic, splittedPayload) => {
     await asyncForEach(splittedPayload, async (chunk) => {
+        console.log(JSON.stringify(chunk).length)
         await publishToIoTTopic(topic, chunk)
     })
 }
 
 const splitPayload = (payload) => {
     const str = JSON.stringify(payload)
-    const metadataSize = JSON.stringify({order: 9999,total: 9999,chunk: ""}).length
-    const chunkMaxSize = (128 * 1024) - (metadataSize)
     const splittedPayload = []
-    const total = Math.ceil(str.length / chunkMaxSize)
-    let chunkOrder = 0
+    // max payload size is 128KB but somehow its size increases slightly after this point
+    const chunkMaxSize = 127 * 1024
+    // arbitrary value got from observation
+    // because inside chunk we have characters that are escaped when stringified (thus it gets bigger),
+    // we need to chunk into smaller parts than the 128 KB
+    // it's decreased if the chunk is still larger than permitted
+    let chunkSize = 117 * 1024
 
-    for (let i=0; i<str.length; i=i+chunkMaxSize) {
-        const chunk = str.substring(i, i+chunkMaxSize)
-        splittedPayload.push({
+    let chunkOrder = 0
+    let chunkOffset = 0
+
+    do {
+        const chunk = str.substring(chunkOffset, chunkOffset+chunkSize)
+        if (chunk.length === 0) {
+            break;
+        }
+        const payloadChunk = {
             order: ++chunkOrder,
-            total,
             chunk
-        })
-    }
+        }
+        if (JSON.stringify(payloadChunk).length > chunkMaxSize) {
+            chunkSize -= 1024
+            chunkOrder--
+        } else {
+            splittedPayload.push(payloadChunk)
+            chunkOffset += chunkSize
+        }
+        
+    } while (true);
+
+    splittedPayload.map((value) => {
+        value.total = chunkOrder
+        return value
+    })
 
     return splittedPayload
 }
