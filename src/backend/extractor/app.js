@@ -5,6 +5,7 @@ const Joi = require('joi')
 const AWS = require('aws-sdk')
 AWS.config.update({ region: 'us-east-1' })
 const iot = new AWS.Iot()
+const fs = require('fs');
 
 const Word = dynamo.define('Word', {
     hashKey : 'word',
@@ -18,108 +19,103 @@ const Word = dynamo.define('Word', {
     }
 })
 
+const SortedFileWords = dynamo.define('SortedFileWords', {
+    hashKey : 'hash',
+    rangeKey: 'frequency',
+
+    timestamps : false,
+    schema : {
+        hash        : Joi.string(),
+        word        : Joi.string(),
+        dictionary  : Joi.array(),
+        translation : Joi.array(),
+        frequency   : Joi.number(),
+        score       : Joi.number(),
+    }
+})
+
 exports.handler = async (event) => {
-    // get file hash
-    // verify if we have it cached
+    const filePath = '/tmp/tmp.pdf'
+
+    const bucket = event.Records[0].s3.bucket.name
     const fileName = event.Records[0].s3.object.key
     const topic = fileName.substring(0, fileName.length-4)
-    try {
-        const bucket = event.Records[0].s3.bucket.name 
-        const file = await getFileFromS3(fileName, bucket)
-        
-        const wordList = extractWords(file)
-        const sortedWordList = await getSortedList(wordList)
-        
-        const {compress} = require('compress-json')
-        const compressed = compress(sortedWordList)
 
-        const splittedPayload = splitPayload(compressed)
+    const fileContent = await getFileFromS3(fileName, bucket)
+    const checksum = await getChecksum(fileContent)
+    const listExists = await sortedWordListExists(checksum)
 
-        // save hash and sorted list
+    if (!listExists) {
         try {
-            await publishSplittedToIoTTopic(topic, splittedPayload)
-        } catch (err) {
-            console.error('erro? ')
-            console.error(err)
+            createTmpFile(filePath, fileContent)
+            const wordList = extractWords(filePath)
+            const sortedWordList = await getSortedList(wordList)
+
+            await saveSortedWordList(checksum, sortedWordList)
+        } catch (error) {
+            console.error(error)
+            await publishToIoTTopic(topic, {error})
         }
-        return sortedWordList
-    } catch (error) {
-        console.error(error)
-        await publishToIoTTopic(topic, error)
     }
-}
-
-const publishSplittedToIoTTopic = async (topic, splittedPayload) => {
-    await asyncForEach(splittedPayload, async (chunk) => {
-        console.log(JSON.stringify(chunk).length)
-        await publishToIoTTopic(topic, chunk)
+    await publishToIoTTopic(topic, {
+        hash: checksum
     })
 }
 
-const splitPayload = (payload) => {
-    const str = JSON.stringify(payload)
-    const splittedPayload = []
-    // max payload size is 128KB but somehow its size increases slightly after this point
-    const chunkMaxSize = 127 * 1024
-    // arbitrary value got from observation
-    // because inside chunk we have characters that are escaped when stringified (thus it gets bigger),
-    // we need to chunk into smaller parts than the 128 KB
-    // it's decreased if the chunk is still larger than permitted
-    let chunkSize = 117 * 1024
-
-    let chunkOrder = 0
-    let chunkOffset = 0
-
-    do {
-        const chunk = str.substring(chunkOffset, chunkOffset+chunkSize)
-        if (chunk.length === 0) {
-            break;
-        }
-        const payloadChunk = {
-            order: ++chunkOrder,
-            chunk
-        }
-        if (JSON.stringify(payloadChunk).length > chunkMaxSize) {
-            chunkSize -= 1024
-            chunkOrder--
-        } else {
-            splittedPayload.push(payloadChunk)
-            chunkOffset += chunkSize
-        }
-        
-    } while (true);
-
-    splittedPayload.map((value) => {
-        value.total = chunkOrder
-        return value
+const saveSortedWordList = (checksum, sortedWordList) => {
+    const promises = []
+    
+    Object.values(sortedWordList).forEach((word) => {
+        word.hash = checksum
+        word.frequency = word.frequency*-1
+        const item = new SortedFileWords(word)
+        promises.push(item.save())
     })
 
-    return splittedPayload
+    return Promise.all(promises)
 }
 
 const publishToIoTTopic = async (topic, payload) => {
-    const {endpointAddress} = await iot.describeEndpoint({endpointType: 'iot:Data-ATS'}).promise()
-    const iotdata = new AWS.IotData({endpoint: endpointAddress})
+    try {
+        const {endpointAddress} = await iot.describeEndpoint({endpointType: 'iot:Data-ATS'}).promise()
+        const iotdata = new AWS.IotData({endpoint: endpointAddress})
+    
+        await iotdata.publish({
+            topic,
+            payload: JSON.stringify(payload),
+            qos: 1
+        }).promise()
+    } catch (error) {
+        console.error(error)
+    }
+}
 
-    await iotdata.publish({
-        topic,
-        payload: JSON.stringify(payload),
-        qos: 1
-    }).promise()
+const sortedWordListExists = async (hash) => {
+    const items = (await SortedFileWords.query(hash).limit(1).exec().promise())[0].Items
+    if (items.length === 0) {
+        return false
+    }
+    return true
 }
 
 const getSortedList = async (wordList) => {
+    let promises = []
     let sortedWordList = []
+    const returnFields = ['word', 'dictionary', 'score', 'frequency']
 
     for (const word of wordList) {
-        const wordStored = await Word.query(word).exec().promise()
-        if (wordStored[0]['Count'] > 0) {
-            const wordMetadata = Object.values(wordStored[0].Items).map((value) => value.attrs)
-            if (wordMetadata[0]) {
-                sortedWordList[wordMetadata[0]['frequency']] = wordMetadata[0]
-            }
-        }
+        promises.push(
+            Word.query(word).attributes(returnFields).exec().promise().then((wordStored) => {
+                if (wordStored[0]['Count'] > 0) {
+                    const wordMetadata = Object.values(wordStored[0].Items).map((value) => value.attrs)
+                    if (wordMetadata[0]) {
+                        sortedWordList[wordMetadata[0]['frequency']] = wordMetadata[0]
+                    }
+                }
+            })
+        )
     }
+    await Promise.all(promises)
     return sortedWordList
 }
 
@@ -140,12 +136,21 @@ const getFileFromS3 = async (fileName, bucket) => {
     })
 }
 
-const extractWords = (file) => {
+const getChecksum = (content) => {
+    const crypto = require('crypto')
+    const hash = crypto.createHash('md5');
+    hash.update(content);
+    return hash.digest('hex')
+}
+
+const createTmpFile = (filePath, content) => {
+    fs.writeFileSync(filePath, content)
+}
+
+const extractWords = (filePath) => {
     const pdftotext = require('pdftotextjs')
-    const fs = require('fs')
     
-    fs.writeFileSync('/tmp/tmp.pdf', file)
-    const pdf = new pdftotext('/tmp/tmp.pdf')
+    const pdf = new pdftotext(filePath)
     const fileContent = pdf.getTextSync().toString()
     return getWordsFromString(fileContent)
 }
@@ -182,20 +187,12 @@ const getWordsFromString = (string) => {
         
         if (word.match(wordMatchExp)) {
             word = correctString(word)
-            words[word] = 1
+            if (word.length > 0) {
+                words[word] = 1
+            }
         }
     })
     words = Object.keys(words)
 
     return words
-}
-
-async function asyncForEach(array, callback) {
-    for (let index = 0; index < array.length; index++) {
-        try {
-            await callback(array[index], index, array);
-        } catch (error) {
-            console.error(error)
-        }
-    }
 }

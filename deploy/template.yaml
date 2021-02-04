@@ -136,6 +136,19 @@ Resources:
                     - Ref: 'AWS::AccountId'
                     - ':table/'
                     - 'words'
+            - Effect: Allow
+              Action:
+                - 'dynamodb:Query'
+                - 'dynamodb:PutItem'
+              Resource:
+                'Fn::Join':
+                  - ''
+                  - - 'arn:aws:dynamodb:'
+                    - Ref: 'AWS::Region'
+                    - ':'
+                    - Ref: 'AWS::AccountId'
+                    - ':table/'
+                    - 'sortedfilewordss'
       Events:
         BucketEvent1:
           Type: S3
