@@ -19,8 +19,6 @@ Resources:
       CorsConfiguration:
         AllowMethods:
           - GET
-          - POST
-          - DELETE
           - OPTIONS
         AllowHeaders:
           - "*"
@@ -98,6 +96,37 @@ Resources:
           Type: HttpApi
           Properties:
             Path: /uploads
+            Method: get
+            ApiId: !Ref MyApi
+
+  GetWordsFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      CodeUri: ../src/backend/getWords/
+      Handler: app.handler
+      Runtime: nodejs12.x
+      Timeout: 3
+      MemorySize: 128
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'dynamodb:Query'
+              Resource:
+                'Fn::Join':
+                  - ''
+                  - - 'arn:aws:dynamodb:'
+                    - Ref: 'AWS::Region'
+                    - ':'
+                    - Ref: 'AWS::AccountId'
+                    - ':table/'
+                    - 'sortedfilewordss'
+      Events:
+        GetWordsAPI:
+          Type: HttpApi
+          Properties:
+            Path: /words/{hash}
             Method: get
             ApiId: !Ref MyApi
 
