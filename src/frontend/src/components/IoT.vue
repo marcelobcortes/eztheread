@@ -43,6 +43,7 @@ export default {
     mqttClient.on('message', (topic, payload) => {
       const msg = JSON.parse(payload.toString())
       console.log('mqttClient message: ', msg)
+      this.$emit('iotMessageReceived', msg)
     })
   }
 }
