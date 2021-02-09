@@ -1,8 +1,15 @@
 <template>
   <div id="app">
     <h1>Ez The Read</h1>
-    <Uploader @setIoTConnection="setIoTConnection($event)" />
-    <IoT :iot="iot" />
+    <Uploader 
+      :connected="connected"
+      :API_ENDPOINT="API_ENDPOINT"
+      @setIoTConnection="setIoTConnection($event)"
+    />
+    <IoT
+      :iot="iot"
+      @iotConnected="iotConnected()" 
+    />
   </div>
 </template>
 
@@ -14,13 +21,18 @@ export default {
   name: 'App',
   data() {
     return {
-      iot: {}
+      iot: {},
+      connected: false,
+      API_ENDPOINT: 'https://atnqoypvz2.execute-api.us-east-1.amazonaws.com'
     }
   },
   methods: {
     setIoTConnection (iotParams) {
       this.iot = iotParams;
-    }
+    },
+    iotConnected () {
+      this.connected = true
+    },
   },
   components: {
     Uploader,

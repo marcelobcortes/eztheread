@@ -25,6 +25,7 @@ export default {
     mqttClient.on('connect', () => {
       console.log('mqttClient connected')
       mqttClient.subscribe(topic)
+      this.$emit('iotConnected')
     })
 
     mqttClient.on('error', (err) => {
