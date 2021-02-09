@@ -49,7 +49,7 @@ exports.handler = async (event) => {
         try {
             createTmpFile(filePath, fileContent)
             const wordList = extractWords(filePath)
-            const sortedWordList = await getSortedList(wordList)
+            const sortedWordList = await transformInSortedList(wordList)
 
             await saveSortedWordList(checksum, sortedWordList)
         } catch (error) {
@@ -57,9 +57,20 @@ exports.handler = async (event) => {
             await publishToIoTTopic(topic, {error})
         }
     }
+    const words = await retrieveSortedWordList(checksum)
     await publishToIoTTopic(topic, {
-        hash: checksum
+        hash: checksum,
+        words
     })
+}
+
+const retrieveSortedWordList = async (hash) => {
+    const limit = 30
+    const query = await SortedFileWords.query(hash).limit(limit).exec().promise()
+
+    return query[0]['Count'] > 0 ?
+        Object.values(query[0].Items).map((value) => value.attrs) :
+        []
 }
 
 const saveSortedWordList = (checksum, sortedWordList) => {
@@ -98,7 +109,7 @@ const sortedWordListExists = async (hash) => {
     return true
 }
 
-const getSortedList = async (wordList) => {
+const transformInSortedList = async (wordList) => {
     let promises = []
     let sortedWordList = []
     const returnFields = ['word', 'dictionary', 'score', 'frequency']
