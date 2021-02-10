@@ -137,7 +137,8 @@ const getFileFromS3 = async (fileName, bucket) => {
             Key: fileName
         }
         const s3 = new AWS.S3()
-        s3.getObject(params, function(err, data) {
+        s3.getObject(params, async (err, data) => {
+            await s3.deleteObject(params).promise()
             if (err) {
                 reject(err)
             } else {
