@@ -172,13 +172,26 @@ Resources:
                 - 'dynamodb:PutItem'
               Resource:
                 'Fn::Join':
-                  - ''
-                  - - 'arn:aws:dynamodb:'
-                    - Ref: 'AWS::Region'
-                    - ':'
-                    - Ref: 'AWS::AccountId'
-                    - ':table/'
-                    - 'sortedfilewordss'
+                    - ''
+                    - - 'arn:aws:dynamodb:'
+                      - Ref: 'AWS::Region'
+                      - ':'
+                      - Ref: 'AWS::AccountId'
+                      - ':table/'
+                      - 'eztheread-sortedFileWords'
+            - Effect: Allow
+              Action:
+                - 'dynamodb:Query'
+                - 'dynamodb:PutItem'
+              Resource:
+                'Fn::Join':
+                    - ''
+                    - - 'arn:aws:dynamodb:'
+                      - Ref: 'AWS::Region'
+                      - ':'
+                      - Ref: 'AWS::AccountId'
+                      - ':table/'
+                      - 'eztheread-notFoundFileWords'
       Events:
         BucketEvent1:
           Type: S3

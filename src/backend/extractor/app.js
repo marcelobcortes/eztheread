@@ -21,6 +21,7 @@ const Word = dynamo.define('Word', {
 })
 
 const SortedFileWords = dynamo.define('SortedFileWords', {
+    tableName: 'eztheread-sortedFileWords',
     hashKey : 'hash',
     rangeKey: 'frequency',
 
@@ -32,6 +33,17 @@ const SortedFileWords = dynamo.define('SortedFileWords', {
         translation : Joi.object(),
         frequency   : Joi.number(),
         score       : Joi.number(),
+    }
+})
+
+const NotFoundFileWords = dynamo.define('NotFoundFileWords', {
+    tableName: 'eztheread-notFoundFileWords',
+    hashKey : 'hash',
+
+    timestamps : false,
+    schema : {
+        hash        : Joi.string(),
+        words       : Joi.array(),
     }
 })
 
@@ -50,18 +62,24 @@ exports.handler = async (event) => {
         try {
             createTmpFile(filePath, fileContent)
             const wordList = extractWords(filePath)
-            const sortedWordList = await transformInSortedList(wordList, checksum)
+            const {
+                sortedWordList,
+                notFoundWordList
+            } = await transformInSortedList(wordList, checksum)
 
             await saveSortedWordList(sortedWordList)
+            await saveNotFoundWordList(notFoundWordList, checksum)
         } catch (error) {
             console.error(error)
             await publishToIoTTopic(topic, {error})
         }
     }
     const words = await retrieveSortedWordList(checksum)
+    const notFoundWords = await retrieveNotFoundWordList(checksum)
     await publishToIoTTopic(topic, {
         hash: checksum,
-        words
+        words,
+        notFoundWords
     })
 }
 
@@ -74,15 +92,27 @@ const retrieveSortedWordList = async (hash) => {
         []
 }
 
+const retrieveNotFoundWordList = async (hash) => {
+    const query = await NotFoundFileWords.query(hash).exec().promise()
+
+    return query[0]['Count'] > 0 ?
+        Object.values(query[0].Items).map((value) => value.attrs) :
+        []
+}
+
 const saveSortedWordList = (sortedWordList) => {
     const promises = []
-    
+
     Object.values(sortedWordList).forEach((word) => {
         const item = new SortedFileWords(word)
         promises.push(item.save())
     })
 
     return Promise.all(promises)
+}
+
+const saveNotFoundWordList = (words, hash) => {
+    return new NotFoundFileWords({hash,words}).save()
 }
 
 const publishToIoTTopic = async (topic, payload) => {
@@ -111,6 +141,7 @@ const sortedWordListExists = async (hash) => {
 const transformInSortedList = async (wordList, checksum) => {
     let promises = []
     let sortedWordList = []
+    let notFoundWordList = []
     const returnFields = ['word', 'dictionary', 'score', 'frequency']
 
     // goes thru every word from the file getting its data from dynamo
@@ -125,12 +156,14 @@ const transformInSortedList = async (wordList, checksum) => {
                         wordMetadata[0].frequency = wordMetadata[0].frequency * -1
                         sortedWordList[wordMetadata[0].frequency] = wordMetadata[0]
                     }
+                } else {
+                    notFoundWordList.push(word)
                 }
             })
         )
     }
     await Promise.all(promises)
-    return sortedWordList
+    return {sortedWordList, notFoundWordList}
 }
 
 const getFileFromS3 = async (fileName, bucket) => {
