@@ -165,7 +165,7 @@ Resources:
                     - ':'
                     - Ref: 'AWS::AccountId'
                     - ':table/'
-                    - 'words'
+                    - 'eztheread-words'
             - Effect: Allow
               Action:
                 - 'dynamodb:Query'

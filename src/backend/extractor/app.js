@@ -8,12 +8,13 @@ const iot = new AWS.Iot()
 const fs = require('fs');
 
 const Word = dynamo.define('Word', {
+    tableName: 'eztheread-words',
     hashKey : 'word',
     timestamps : false,
     schema : {
         word        : Joi.string(),
         dictionary  : Joi.array(),
-        translation : Joi.array(),
+        translation : Joi.object(),
         frequency   : Joi.number(),
         score       : Joi.number(),
     }
@@ -28,7 +29,7 @@ const SortedFileWords = dynamo.define('SortedFileWords', {
         hash        : Joi.string(),
         word        : Joi.string(),
         dictionary  : Joi.array(),
-        translation : Joi.array(),
+        translation : Joi.object(),
         frequency   : Joi.number(),
         score       : Joi.number(),
     }
@@ -49,9 +50,9 @@ exports.handler = async (event) => {
         try {
             createTmpFile(filePath, fileContent)
             const wordList = extractWords(filePath)
-            const sortedWordList = await transformInSortedList(wordList)
+            const sortedWordList = await transformInSortedList(wordList, checksum)
 
-            await saveSortedWordList(checksum, sortedWordList)
+            await saveSortedWordList(sortedWordList)
         } catch (error) {
             console.error(error)
             await publishToIoTTopic(topic, {error})
@@ -73,12 +74,10 @@ const retrieveSortedWordList = async (hash) => {
         []
 }
 
-const saveSortedWordList = (checksum, sortedWordList) => {
+const saveSortedWordList = (sortedWordList) => {
     const promises = []
     
     Object.values(sortedWordList).forEach((word) => {
-        word.hash = checksum
-        word.frequency = word.frequency*-1
         const item = new SortedFileWords(word)
         promises.push(item.save())
     })
@@ -109,18 +108,22 @@ const sortedWordListExists = async (hash) => {
     return true
 }
 
-const transformInSortedList = async (wordList) => {
+const transformInSortedList = async (wordList, checksum) => {
     let promises = []
     let sortedWordList = []
     const returnFields = ['word', 'dictionary', 'score', 'frequency']
 
+    // goes thru every word from the file getting its data from dynamo
+    // create two array sorted by frequency and score
     for (const word of wordList) {
         promises.push(
             Word.query(word).attributes(returnFields).exec().promise().then((wordStored) => {
-                if (wordStored[0]['Count'] > 0) {
+                if (wordStored[0].Count > 0) {
                     const wordMetadata = Object.values(wordStored[0].Items).map((value) => value.attrs)
                     if (wordMetadata[0]) {
-                        sortedWordList[wordMetadata[0]['frequency']] = wordMetadata[0]
+                        wordMetadata[0].hash = checksum
+                        wordMetadata[0].frequency = wordMetadata[0].frequency * -1
+                        sortedWordList[wordMetadata[0].frequency] = wordMetadata[0]
                     }
                 }
             })
