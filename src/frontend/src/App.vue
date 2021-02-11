@@ -14,6 +14,7 @@
     <div v-if="hash">
       <WordsTable
         :firstWords="firstWords"
+        :API_ENDPOINT="API_ENDPOINT"
       />
     </div>
   </div>
